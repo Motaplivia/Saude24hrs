@@ -47,6 +47,7 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
   const [selectedMinute, setSelectedMinute] = useState(0);
   const hourScrollRef = useRef(null);
   const minuteScrollRef = useRef(null);
+  const [patients, setPatients] = useState([]);
 
   // Rola para a hora selecionada quando o modal abre
   useEffect(() => {
@@ -64,6 +65,17 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
       }, 100);
     }
   }, [showTimePickerModal, selectedHour, selectedMinute]);
+
+  useEffect(() => {
+    const loadPatients = async () => {
+      if (!patientController) return;
+      if (patientController.ensureLoaded) {
+        await patientController.ensureLoaded();
+      }
+      setPatients(patientController.getAllPatients());
+    };
+    loadPatients();
+  }, [patientController]);
 
   // Listas pré-definidas
   const commonMedications = [
@@ -213,7 +225,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
     }
   };
 
-  const patients = patientController?.getAllPatients() || [];
   const activePatients = patients.filter(p => p.status === 'ativo');
 
   const formatDate = (dateString) => {
@@ -254,7 +265,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Temperatura (°C)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="36.5"
                 value={formData.temperature}
                 onChangeText={(text) => setFormData({ ...formData, temperature: text })}
                 keyboardType="decimal-pad"
@@ -265,7 +275,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Freq.Cardíaca (bpm)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="70"
                 value={formData.heartRate}
                 onChangeText={(text) => setFormData({ ...formData, heartRate: text })}
                 keyboardType="numeric"
@@ -278,7 +287,7 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Tensão Sistólica (mmHg)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="120"
+            
                 value={formData.systolicBP}
                 onChangeText={(text) => setFormData({ ...formData, systolicBP: text })}
                 keyboardType="numeric"
@@ -289,7 +298,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Tensão Diastólica (mmHg)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="80"
                 value={formData.diastolicBP}
                 onChangeText={(text) => setFormData({ ...formData, diastolicBP: text })}
                 keyboardType="numeric"
@@ -301,7 +309,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
             <Text style={styles.label}>Saturação de Oxigênio (%)</Text>
             <TextInput
               style={styles.input}
-              placeholder="97"
               value={formData.spO2}
               onChangeText={(text) => setFormData({ ...formData, spO2: text })}
               keyboardType="numeric"
@@ -313,7 +320,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Eliminação Intestinal</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Normal"
                 value={formData.bowelMovement}
                 onChangeText={(text) => setFormData({ ...formData, bowelMovement: text })}
               />
@@ -323,7 +329,6 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
               <Text style={styles.label}>Eliminação Urinária</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Normal"
                 value={formData.urinaryOutput}
                 onChangeText={(text) => setFormData({ ...formData, urinaryOutput: text })}
               />
@@ -343,7 +348,7 @@ const DiarioPacienteView = ({ diaryController, patientController, onSave }) => {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Observações *</Text>
+            <Text style={styles.label}>Observações </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="Digite as observações"

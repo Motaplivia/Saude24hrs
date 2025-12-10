@@ -175,14 +175,8 @@ class ControladorAlta {
       // Atualiza o status do paciente para "Alta" no PatientController
       if (this.patientController && dischargeData.patientId) {
         try {
-          const patient = this.patientController.getPatientById(dischargeData.patientId);
-          if (patient) {
-            // Atualiza o status do paciente localmente
-            patient.status = 'Alta';
-            // Nota: Se o PatientController tiver integração com Firebase, 
-            // a atualização do status deve ser feita lá
-            console.log(`✅ Status do paciente ${dischargeData.patientId} atualizado para "Alta"`);
-          }
+          await this.patientController.updatePatient(dischargeData.patientId, { status: 'inativo', eligibleForDischarge: false });
+          console.log(`✅ Status do paciente ${dischargeData.patientId} atualizado para "Alta"`);
         } catch (error) {
           console.error('Erro ao atualizar status do paciente:', error);
         }

@@ -26,8 +26,12 @@ const GestaoPacientesView = ({ patientController, validationController, diaryCon
     loadPatients();
   }, [searchQuery, selectedService, selectedStatus, patientController]);
 
-  const loadPatients = () => {
+  const loadPatients = async () => {
     if (!patientController) return;
+
+    if (patientController.ensureLoaded) {
+      await patientController.ensureLoaded();
+    }
 
     let filtered = patientController.getAllPatients();
 
@@ -67,7 +71,7 @@ const GestaoPacientesView = ({ patientController, validationController, diaryCon
     const allPatients = patientController.getAllPatients();
     const services = Array.from(new Set(allPatients.map(p => p.service).filter(Boolean)));
     return ['todos', ...services.sort()];
-  }, [patientController]);
+  }, [patientController, patients]);
 
   const services = availableServices.length > 1 
     ? availableServices 

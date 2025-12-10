@@ -17,8 +17,11 @@ const PatientManagementView = ({ patientController }) => {
 
   // Carrega os pacientes do controller
   useEffect(() => {
-    const loadPatients = () => {
+    const loadPatients = async () => {
       if (patientController) {
+        if (patientController.ensureLoaded) {
+          await patientController.ensureLoaded();
+        }
         const allPatients = patientController.getAllPatients();
         setPatients(allPatients);
       }

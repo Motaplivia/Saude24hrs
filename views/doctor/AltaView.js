@@ -11,12 +11,23 @@ const AltaView = ({ dischargeController, patientController, diaryController, onD
   const [patientData, setPatientData] = useState(null);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+
+  useEffect(() => {
+    const loadPatients = async () => {
+      if (!patientController) return;
+      if (patientController.ensureLoaded) {
+        await patientController.ensureLoaded();
+      }
+      setPatients(patientController.getAllPatients());
+    };
+    loadPatients();
+  }, [patientController]);
 
   // Obtém apenas pacientes internados (ativos)
   const activePatients = useMemo(() => {
-    if (!patientController) return [];
-    return patientController.getAllPatients().filter(p => p.status === 'ativo') || [];
-  }, [patientController]);
+    return patients.filter(p => p.status === 'ativo');
+  }, [patients]);
 
   useEffect(() => {
     if (selectedPatientId && dischargeController) {

@@ -24,10 +24,10 @@ const LoginView = ({ onLogin, onForgotPassword, doctorController, patientControl
     try {
       let userFound = false;
 
-      // 1. Verifica se é admin (email contém "admin" ou "claudio")
+      // 1. Verifica se é admin 
       if (formData.email.trim() && formData.password.trim()) {
         const emailLower = formData.email.toLowerCase();
-        if (emailLower.includes('admin') || emailLower.includes('claudio')) {
+        if (emailLower.includes('admin')) {
           // Admin usa email e senha (validação simples por enquanto)
           // Em produção, isso seria verificado em um AdminController
           userFound = true;
@@ -65,10 +65,10 @@ const LoginView = ({ onLogin, onForgotPassword, doctorController, patientControl
 
       // 3. Se não encontrou médico, tenta login como paciente (email + senha)
       if (!userFound && formData.email.trim() && formData.password.trim() && patientController) {
-        const patients = patientController.getAllPatients();
-        const patient = patients.find(
-          p => p.email?.toLowerCase() === formData.email.toLowerCase() && 
-               p.password === formData.password
+        await patientController.ensureLoaded?.();
+        const patient = await patientController.validateCredentials(
+          formData.email.toLowerCase(),
+          formData.password
         );
         if (patient) {
           userFound = true;
@@ -87,8 +87,8 @@ const LoginView = ({ onLogin, onForgotPassword, doctorController, patientControl
 
       // 4. Se não encontrou paciente e a senha tem 6 dígitos (sem email ou email vazio), tenta como familiar
       if (!userFound && formData.password.trim().length === 6 && patientController) {
-        const patients = patientController.getAllPatients();
-        const patient = patients.find(p => p.accessCode === formData.password);
+        await patientController.ensureLoaded?.();
+        const patient = await patientController.getPatientByAccessCode(formData.password);
         if (patient) {
           userFound = true;
           if (onLogin) {
@@ -129,7 +129,7 @@ const LoginView = ({ onLogin, onForgotPassword, doctorController, patientControl
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Sistema Médico</Text>
+          <Text style={styles.title}>Saúde 24Hrs</Text>
         </View>
 
         <View style={styles.form}>
@@ -158,7 +158,7 @@ const LoginView = ({ onLogin, onForgotPassword, doctorController, patientControl
               <MaterialIcons name="lock" size={20} color="#566246" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Digite a senha ou código de acesso (6 dígitos)"
+                placeholder="Senha ou código de acesso"
                 value={formData.password}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 secureTextEntry={!showPassword && formData.password.length !== 6}
@@ -211,12 +211,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F2EB',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 0,
+    padding: 10,
   },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 30,
+    padding: 20,
     width: '100%',
     maxWidth: 400,
     marginHorizontal: 20,

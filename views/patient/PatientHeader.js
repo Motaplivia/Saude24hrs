@@ -26,11 +26,7 @@ const PatientHeader = ({ onMenuPress, onProfilePress, onSwitchToDoctor, currentR
         <Text style={styles.menuIcon}>☰</Text>
       </TouchableOpacity>
       {title ? <Text style={styles.title}>{title}</Text> : <View style={styles.spacer} />}
-      {onSwitchToDoctor && (
-        <TouchableOpacity onPress={onSwitchToDoctor} style={styles.switchButton}>
-          <Text style={styles.switchButtonText}>Modo Médico</Text>
-        </TouchableOpacity>
-      )}
+      {/* Botão de alternância para modo médico removido para experiência do paciente */}
       <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
         <Text style={styles.profileIcon}>👤</Text>
       </TouchableOpacity>

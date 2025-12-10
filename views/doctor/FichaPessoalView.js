@@ -38,6 +38,15 @@ const FichaPessoalView = ({ user, doctorController, onUpdateUser }) => {
     loadDoctorData();
   }, [doctorController, user?.email]);
 
+  const getInitials = (fullName) => {
+    if (!fullName) return 'DM';
+    const parts = fullName.trim().split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return fullName.substring(0, 2).toUpperCase();
+  };
+
   const handleSave = async () => {
     try {
       // Validações
@@ -71,13 +80,29 @@ const FichaPessoalView = ({ user, doctorController, onUpdateUser }) => {
         
         if (updated) {
           // Atualiza os dados locais
+          const newName = updated.name || formData.name;
+          const newEmail = updated.email || formData.email;
+          const newPhone = updated.phone || formData.phone;
+
           setDoctorData(updated);
           setFormData({
-            name: updated.name || formData.name,
-            email: updated.email || formData.email,
-            phone: updated.phone || formData.phone,
+            name: newName,
+            email: newEmail,
+            phone: newPhone,
           });
-          
+
+          // Atualiza o usuário logado (sidebar/header) com nome/iniciais novos
+          if (onUpdateUser) {
+            onUpdateUser({
+              ...user,
+              name: newName,
+              email: newEmail,
+              phone: newPhone,
+              initials: getInitials(newName),
+              fullName: newName,
+            });
+          }
+
           Alert.alert('Sucesso', 'Dados atualizados com sucesso!');
         } else {
           Alert.alert('Erro', 'Não foi possível atualizar os dados');
@@ -94,7 +119,7 @@ const FichaPessoalView = ({ user, doctorController, onUpdateUser }) => {
     }
   };
 
-  const initials = doctorData?.initials || user?.initials || user?.getInitials?.() || 'DM';
+  const initials = doctorData?.initials || getInitials(formData.name || doctorData?.name || user?.name) || user?.initials || user?.getInitials?.() || 'DM';
 
   return (
     <ScrollView style={styles.container}>

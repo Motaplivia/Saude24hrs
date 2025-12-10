@@ -98,16 +98,24 @@ export default function App() {
 
   // Handler para login
   const handleLogin = (credentials) => {
-    const loggedUser = userController.login(credentials);
+    // Se já veio credencial com role (ex: paciente/familiar), respeita
+    const loggedUser = credentials?.role
+      ? credentials
+      : userController.login(credentials);
+
     setUser(loggedUser);
+
     // Determina o tipo de usuário baseado no role
     if (loggedUser.role === 'Administrador Geral') {
       setUserType('admin');
     } else if (loggedUser.role === 'Paciente') {
       setUserType('patient');
+    } else if (loggedUser.role === 'Familiar') {
+      setUserType('patient');
     } else {
       setUserType('doctor');
     }
+
     console.log('Usuário logado:', loggedUser);
   };
 
@@ -147,16 +155,16 @@ export default function App() {
   };
 
   // Handler para admissão de paciente
-  const handleAdmit = (patientData) => {
-    const newPatient = patientController.addPatient(patientData);
+  const handleAdmit = async (patientData) => {
+    const newPatient = await patientController.addPatient(patientData);
     console.log('Paciente admitido:', newPatient);
     // As credenciais já são exibidas no console pelo controller
     return newPatient; // Retorna com credenciais para uso na view
   };
 
   // Handler para salvar diário
-  const handleSaveDiary = (diaryData) => {
-    const newDiary = diaryController.createDiary(diaryData);
+  const handleSaveDiary = async (diaryData) => {
+    const newDiary = await diaryController.createDiary(diaryData);
     console.log('Diário salvo:', newDiary);
   };
 
@@ -302,7 +310,7 @@ export default function App() {
           patient={currentPatient}
           currentRoute={patientRoute}
           onNavigate={handlePatientNavigate}
-          onSwitchToDoctor={handleSwitchToDoctor}
+          onSwitchToDoctor={null}
         />
       </>
     );

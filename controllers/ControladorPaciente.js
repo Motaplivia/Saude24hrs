@@ -2,11 +2,44 @@
 // Gerencia a lógica relacionada aos pacientes
 
 import Paciente from '../models/Paciente';
+import { db } from '../config/firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  orderBy,
+  query,
+  onSnapshot,
+} from 'firebase/firestore';
 
 class ControladorPaciente {
   constructor() {
     this.patients = [];
+    this.collectionName = 'pacientes';
+    this.initialized = false;
+    this.unsubscribe = null;
     this.initializeMockData();
+    this.init();
+  }
+
+  async init() {
+    try {
+      await this.loadFromDatabase();
+      this.initialized = true;
+      this.setupRealtimeListener();
+      console.log('✅ Firebase inicializado e dados de pacientes carregados');
+    } catch (error) {
+      console.error('Erro ao inicializar pacientes no Firebase:', error);
+      // mantém mock local se falhar
+    }
+  }
+
+  async ensureLoaded() {
+    if (!this.initialized) {
+      await this.init();
+    }
   }
 
   // Inicializa dados mockados
@@ -187,6 +220,53 @@ class ControladorPaciente {
     });
   }
 
+  async loadFromDatabase() {
+    try {
+      const patientsRef = collection(db, this.collectionName);
+      const q = query(patientsRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+
+      this.patients = [];
+
+      snapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        this.patients.push(new Paciente({
+          id: docSnapshot.id,
+          ...data,
+        }));
+      });
+
+      console.log(`✅ ${this.patients.length} paciente(s) carregado(s) do Firebase`);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes do Firebase:', error);
+      // se falhar, mantém mock existente
+    }
+  }
+
+  setupRealtimeListener() {
+    try {
+      const patientsRef = collection(db, this.collectionName);
+      const q = query(patientsRef, orderBy('createdAt', 'desc'));
+
+      this.unsubscribe = onSnapshot(q, (snapshot) => {
+        const updated = [];
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          updated.push(new Paciente({
+            id: docSnapshot.id,
+            ...data,
+          }));
+        });
+        this.patients = updated;
+        console.log(`📋 Pacientes atualizados em tempo real: ${updated.length}`);
+      }, (error) => {
+        console.error('Erro no listener de pacientes:', error);
+      });
+    } catch (error) {
+      console.error('Erro ao configurar listener de pacientes:', error);
+    }
+  }
+
   // Retorna os próximos atendimentos agendados para o médico
   getUpcomingAppointments(doctorId = null) {
     const now = new Date();
@@ -275,64 +355,122 @@ class ControladorPaciente {
   }
 
   // Adiciona um novo paciente
-  addPatient(patientData) {
-    // Calcula o próximo ID baseado no maior ID existente
-    const maxId = this.patients.length > 0
-      ? Math.max(...this.patients.map(p => p.id || 0))
-      : 0;
-    const nextId = maxId + 1;
+  async addPatient(patientData) {
+    await this.ensureLoaded();
 
     // Gera senha e código de acesso
     const password = this.generatePassword();
     const accessCode = this.generateAccessCode();
 
-    const patient = new Paciente({
+    const baseData = {
       ...patientData,
-      id: nextId,
       email: patientData.email?.toLowerCase() || '',
-      password: password,
-      accessCode: accessCode,
+      password,
+      accessCode,
       admissionDate: new Date().toISOString(),
-    });
-    
-    this.patients.push(patient);
-    
-    // Retorna dados completos incluindo credenciais para exibição
-    const patientWithCredentials = patient.toJSONWithCredentials();
-    
-    console.log('✅ Paciente adicionado:', patient.toJSON());
-    
-    // Exibe informações que seriam enviadas por email
-    console.log('═══════════════════════════════════════════════════');
-    console.log('📧 EMAIL ENVIADO PARA:', patient.email);
-    console.log('═══════════════════════════════════════════════════');
-    console.log('Olá ' + patient.name + ',');
-    console.log('');
-    console.log('Bem-vindo ao Sistema Hospitalar!');
-    console.log('');
-    console.log('Suas credenciais de acesso:');
-    console.log('───────────────────────────────────────────────────');
-    console.log('📧 Email:', patient.email);
-    console.log('🔑 Senha de Acesso:', password);
-    console.log('───────────────────────────────────────────────────');
-    console.log('');
-    console.log('Código de Acesso para Familiares:');
-    console.log('───────────────────────────────────────────────────');
-    console.log('🔐 Código:', accessCode);
-    console.log('───────────────────────────────────────────────────');
-    console.log('');
-    console.log('Você pode compartilhar este código com familiares');
-    console.log('para que eles possam acessar suas informações.');
-    console.log('');
-    console.log('Acesse o sistema em: [URL do sistema]');
-    console.log('═══════════════════════════════════════════════════');
-    
-    return patientWithCredentials;
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const patientsRef = collection(db, this.collectionName);
+      const docRef = await addDoc(patientsRef, baseData);
+
+      const patient = new Paciente({
+        id: docRef.id,
+        ...baseData,
+      });
+
+      const patientWithCredentials = patient.toJSONWithCredentials();
+
+      console.log('✅ Paciente adicionado no Firebase:', patient.toJSON());
+      console.log('═══════════════════════════════════════════════════');
+      console.log('📧 EMAIL ENVIADO PARA:', patient.email);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('Olá ' + patient.name + ',');
+      console.log('');
+      console.log('Bem-vindo ao Sistema Hospitalar!');
+      console.log('');
+      console.log('Suas credenciais de acesso:');
+      console.log('───────────────────────────────────────────────────');
+      console.log('📧 Email:', patient.email);
+      console.log('🔑 Senha de Acesso:', password);
+      console.log('───────────────────────────────────────────────────');
+      console.log('');
+      console.log('Código de Acesso para Familiares:');
+      console.log('───────────────────────────────────────────────────');
+      console.log('🔐 Código:', accessCode);
+      console.log('───────────────────────────────────────────────────');
+
+      return patientWithCredentials;
+    } catch (error) {
+      console.error('Erro ao adicionar paciente no Firebase, usando fallback local:', error);
+
+      // fallback local
+      const maxId = this.patients.length > 0
+        ? Math.max(...this.patients.map(p => p.id || 0))
+        : 0;
+      const nextId = maxId + 1;
+
+      const patient = new Paciente({
+        ...baseData,
+        id: nextId,
+      });
+
+      this.patients.push(patient);
+      return patient.toJSONWithCredentials();
+    }
   }
 
   // Retorna todos os pacientes
   getAllPatients() {
-    return this.patients.map(patient => patient.toJSON());
+    // Evita duplicados caso algum listener retorne entradas repetidas
+    const uniqueById = new Map();
+    this.patients.forEach(patient => {
+      const key = patient.id || patient.userNumber || `${patient.name}-${patient.email}`;
+      if (!uniqueById.has(key)) {
+        uniqueById.set(key, patient);
+      }
+    });
+    return Array.from(uniqueById.values()).map(patient => patient.toJSON());
+  }
+
+  async validateCredentials(email, password) {
+    await this.ensureLoaded();
+    const patient = this.patients.find(
+      p =>
+        (p.email || '').toLowerCase() === (email || '').toLowerCase() &&
+        p.password === password
+    );
+    return patient ? patient.toJSON() : null;
+  }
+
+  async getPatientByAccessCode(code) {
+    await this.ensureLoaded();
+    const patient = this.patients.find(p => p.accessCode === code);
+    return patient ? patient.toJSON() : null;
+  }
+
+  // Atualiza status ou campos simples do paciente
+  async updatePatient(id, data) {
+    await this.ensureLoaded();
+    const patientIndex = this.patients.findIndex(p => p.id === id || p.id?.toString() === id?.toString());
+    if (patientIndex === -1) return null;
+
+    const updated = {
+      ...this.patients[patientIndex].toJSONWithCredentials(),
+      ...data,
+    };
+
+    try {
+      const docRef = doc(db, this.collectionName, id.toString());
+      await updateDoc(docRef, data);
+      this.patients[patientIndex] = new Paciente(updated);
+      return this.patients[patientIndex].toJSON();
+    } catch (error) {
+      console.error('Erro ao atualizar paciente no Firebase:', error);
+      this.patients[patientIndex] = new Paciente(updated);
+      return this.patients[patientIndex].toJSON();
+    }
   }
 
   // Retorna a estrutura de enfermarias e leitos

@@ -3,12 +3,43 @@
 
 import Diario from '../models/Diario';
 import ControladorPaciente from './ControladorPaciente';
+import { db } from '../config/firebase';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+} from 'firebase/firestore';
 
 class ControladorDiario {
   constructor(patientController = null) {
     this.diaries = [];
     this.patientController = patientController || new ControladorPaciente();
+    this.collectionName = 'diarios';
+    this.initialized = false;
+    this.unsubscribe = null;
     this.initializeMockData();
+    this.init();
+  }
+
+  async init() {
+    try {
+      await this.loadFromDatabase();
+      this.initialized = true;
+      this.setupRealtimeListener();
+      console.log('✅ Firebase inicializado e diários carregados');
+    } catch (error) {
+      console.error('Erro ao inicializar diários no Firebase:', error);
+      // mantém dados mock se falhar
+    }
+  }
+
+  async ensureLoaded() {
+    if (!this.initialized) {
+      await this.init();
+    }
   }
 
   // Inicializa dados mockados
@@ -113,20 +144,87 @@ class ControladorDiario {
     });
   }
 
+  async loadFromDatabase() {
+    try {
+      const diariesRef = collection(db, this.collectionName);
+      const q = query(diariesRef, orderBy('date', 'desc'));
+      const snapshot = await getDocs(q);
+
+      this.diaries = [];
+      snapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        this.diaries.push(new Diario({
+          id: docSnapshot.id,
+          ...data,
+        }));
+      });
+
+      console.log(`✅ ${this.diaries.length} diário(s) carregado(s) do Firebase`);
+    } catch (error) {
+      console.error('Erro ao carregar diários do Firebase:', error);
+    }
+  }
+
+  setupRealtimeListener() {
+    try {
+      const diariesRef = collection(db, this.collectionName);
+      const q = query(diariesRef, orderBy('date', 'desc'));
+      this.unsubscribe = onSnapshot(q, (snapshot) => {
+        const updated = [];
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          updated.push(new Diario({
+            id: docSnapshot.id,
+            ...data,
+          }));
+        });
+        this.diaries = updated;
+        console.log('📒 Diários atualizados em tempo real:', updated.length);
+      }, (error) => {
+        console.error('Erro no listener de diários:', error);
+      });
+    } catch (error) {
+      console.error('Erro ao configurar listener de diários:', error);
+    }
+  }
+
   // Cria um novo registro de diário
-  createDiary(diaryData) {
-    const diary = new Diario({
+  async createDiary(diaryData) {
+    await this.ensureLoaded();
+    const newDiaryData = {
       ...diaryData,
-      id: this.diaries.length + 1,
       date: new Date().toISOString(),
-    });
-    this.diaries.push(diary);
-    return diary.toJSON();
+    };
+
+    try {
+      const diariesRef = collection(db, this.collectionName);
+      const docRef = await addDoc(diariesRef, newDiaryData);
+      // Não adiciona localmente para evitar duplicação; listener atualizará o array
+      return {
+        id: docRef.id,
+        ...newDiaryData,
+      };
+    } catch (error) {
+      console.error('Erro ao gravar diário no Firebase, salvando localmente:', error);
+      const diary = new Diario({
+        ...newDiaryData,
+        id: this.diaries.length + 1,
+      });
+      this.diaries.push(diary);
+      return diary.toJSON();
+    }
   }
 
   // Retorna todos os diários
   getAllDiaries() {
-    return this.diaries.map(diary => diary.toJSON());
+    const uniqueById = new Map();
+    this.diaries.forEach(diary => {
+      const key = diary.id || `${diary.patientId}-${diary.date}`;
+      if (!uniqueById.has(key)) {
+        uniqueById.set(key, diary);
+      }
+    });
+    return Array.from(uniqueById.values()).map(diary => diary.toJSON());
   }
 
   // Retorna diários de um paciente

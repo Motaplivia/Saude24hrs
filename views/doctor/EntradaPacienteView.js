@@ -51,6 +51,12 @@ const EntradaPacienteView = ({ patientController, onAdmit }) => {
     return patientController.getAvailableBeds(formData.ward) || [];
   }, [formData.ward, patientController]);
 
+  useEffect(() => {
+    if (patientController?.ensureLoaded) {
+      patientController.ensureLoaded();
+    }
+  }, [patientController]);
+
   // Limpa o leito quando a enfermaria muda
   useEffect(() => {
     if (formData.ward) {
@@ -121,7 +127,7 @@ const EntradaPacienteView = ({ patientController, onAdmit }) => {
     submitPatient();
   };
 
-  const submitPatient = () => {
+  const submitPatient = async () => {
     if (onAdmit) {
       const patientData = {
         name: formData.name.trim(),
@@ -137,8 +143,14 @@ const EntradaPacienteView = ({ patientController, onAdmit }) => {
         eligibleForDischarge: false,
       };
 
-      // Chama o handler que retorna o paciente com credenciais
-      const patientWithCredentials = onAdmit(patientData);
+      let patientWithCredentials = null;
+      try {
+        // Chama o handler que retorna o paciente com credenciais
+        patientWithCredentials = await onAdmit(patientData);
+      } catch (error) {
+        Alert.alert('Erro', 'Não foi possível salvar o paciente. Tente novamente.');
+        return;
+      }
 
       // Limpa o formulário após sucesso
       setFormData({
